@@ -1,0 +1,37 @@
+# Python environments and caches
+.venv/
+venv/
+tmp-venv/
+tmp-venv2/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Node build output and dependencies
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Local data, uploaded archives, and generated analysis output
+Backend/storage/
+output/
+*.zip
+*.7z
+CXP-4992_attachments/
+customer_sample_upload.zip
+
+# Local configuration and editor files
+.env
+.env.*
+!.env.example
+config.json
+.vscode/
+.idea/
+*.log
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+Thumbs.db
+.DS_Store
