@@ -1,0 +1,90 @@
+Mon Nov  2 09:46:04 2026    ..\benchmark_results\customer_archive_parser.prof
+
+         722531797 function calls (722529396 primitive calls) in 1339.227 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1708 to 35 due to restriction <35>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+20014/20013   14.822    0.001 3011.314    0.150 threading.py:641(wait)
+    136/1    0.003    0.000 1339.226 1339.226 {built-in method builtins.exec}
+        1    0.001    0.001 1339.225 1339.225 benchmark_job.py:1(<module>)
+        1    0.001    0.001 1339.179 1339.179 benchmark_job.py:18(main)
+        1    0.000    0.000 1338.915 1338.915 threading.py:1058(join)
+        1    0.000    0.000 1338.915 1338.915 {method 'join' of '_thread._ThreadHandle' objects}
+        1    0.000    0.000 1338.915 1338.915 threading.py:1000(_bootstrap)
+        1    0.001    0.001 1338.915 1338.915 threading.py:1027(_bootstrap_inner)
+        1    0.001    0.001 1338.914 1338.914 threading.py:983(run)
+  8909831    6.439    0.000 1287.783    0.000 {built-in method builtins.next}
+  8909247  121.395    0.000 1220.541    0.000 parse_logs.py:100(iter_log_records)
+20014/20013    0.891    0.000  976.129    0.049 threading.py:327(wait)
+  8908689   39.363    0.000  541.844    0.000 parse_logs.py:62(split_function_and_message)
+ 18333934  475.711    0.000  475.711    0.000 {method 'search' of 're.Pattern' objects}
+  8908689   21.165    0.000  443.774    0.000 parse_logs.py:90(to_iso_timestamp)
+ 17817378   30.815    0.000  390.271    0.000 {built-in method strptime}
+ 17817378   25.600    0.000  359.442    0.000 _strptime.py:670(_strptime_datetime)
+ 17817378  168.498    0.000  332.643    0.000 _strptime.py:413(_strptime)
+ 17817380    9.261    0.000   97.386    0.000 _strptime.py:28(_getlang)
+ 17817380   14.365    0.000   87.372    0.000 locale.py:582(getlocale)
+        1    0.000    0.000   87.163   87.163 benchmark_job.py:57(sample_memory)
+80061/80055   27.619    0.000   78.215    0.001 {method 'acquire' of '_thread.lock' objects}
+ 17817380   11.439    0.000   43.507    0.000 locale.py:464(_parse_localename)
+  8908689   40.187    0.000   40.187    0.000 <string>:2(__init__)
+ 27163834   38.536    0.000   38.536    0.000 {method 'match' of 're.Pattern' objects}
+ 17817386   20.236    0.000   32.067    0.000 locale.py:381(normalize)
+  8616769    9.170    0.000   31.656    0.000 __init__.py:183(sub)
+ 17817380   30.399    0.000   30.399    0.000 {built-in method _locale.setlocale}
+ 89115211   27.610    0.000   27.610    0.000 {method 'get' of 'dict' objects}
+ 98218864   25.572    0.000   25.572    0.000 {method 'strip' of 'str' objects}
+  8908691   23.749    0.000   23.749    0.000 {method 'isoformat' of 'datetime.datetime' objects}
+ 17817378   19.514    0.000   19.514    0.000 {method 'groupdict' of 're.Match' objects}
+     2304   19.113    0.008   19.113    0.008 {method 'commit' of 'sqlite3.Connection' objects}
+  8616928    9.173    0.000   13.620    0.000 __init__.py:330(_compile)
+     1119    0.036    0.000   10.990    0.010 job_manager.py:141(_update_job_timed)
+
+
+\n--- SELF TIME ---\nMon Nov  2 09:46:04 2026    ..\benchmark_results\customer_archive_parser.prof
+
+         722531797 function calls (722529396 primitive calls) in 1339.227 seconds
+
+   Ordered by: internal time
+   List reduced from 1708 to 35 due to restriction <35>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+ 18333934  475.711    0.000  475.711    0.000 {method 'search' of 're.Pattern' objects}
+ 17817378  168.498    0.000  332.643    0.000 _strptime.py:413(_strptime)
+  8909247  121.395    0.000 1220.541    0.000 parse_logs.py:100(iter_log_records)
+  8908689   40.187    0.000   40.187    0.000 <string>:2(__init__)
+  8908689   39.363    0.000  541.844    0.000 parse_logs.py:62(split_function_and_message)
+ 27163834   38.536    0.000   38.536    0.000 {method 'match' of 're.Pattern' objects}
+ 17817378   30.815    0.000  390.271    0.000 {built-in method strptime}
+ 17817380   30.399    0.000   30.399    0.000 {built-in method _locale.setlocale}
+80061/80055   27.619    0.000   78.215    0.001 {method 'acquire' of '_thread.lock' objects}
+ 89115211   27.610    0.000   27.610    0.000 {method 'get' of 'dict' objects}
+ 17817378   25.600    0.000  359.442    0.000 _strptime.py:670(_strptime_datetime)
+ 98218864   25.572    0.000   25.572    0.000 {method 'strip' of 'str' objects}
+  8908691   23.749    0.000   23.749    0.000 {method 'isoformat' of 'datetime.datetime' objects}
+  8908689   21.165    0.000  443.774    0.000 parse_logs.py:90(to_iso_timestamp)
+ 17817386   20.236    0.000   32.067    0.000 locale.py:381(normalize)
+ 17817378   19.514    0.000   19.514    0.000 {method 'groupdict' of 're.Match' objects}
+     2304   19.113    0.008   19.113    0.008 {method 'commit' of 'sqlite3.Connection' objects}
+20014/20013   14.822    0.001 3011.314    0.150 threading.py:641(wait)
+ 17817380   14.365    0.000   87.372    0.000 locale.py:582(getlocale)
+ 17817380   11.439    0.000   43.507    0.000 locale.py:464(_parse_localename)
+  8633290   10.591    0.000   10.591    0.000 {method 'sub' of 're.Pattern' objects}
+ 44269426   10.583    0.000   10.583    0.000 {built-in method builtins.isinstance}
+44564540/44564188    9.847    0.000    9.847    0.000 {built-in method builtins.len}
+ 17817380    9.261    0.000   97.386    0.000 _strptime.py:28(_getlang)
+  8616928    9.173    0.000   13.620    0.000 __init__.py:330(_compile)
+  8616769    9.170    0.000   31.656    0.000 __init__.py:183(sub)
+ 17528116    9.156    0.000    9.156    0.000 {method 'split' of 'str' objects}
+     1125    8.162    0.007    8.177    0.007 {built-in method _io.open}
+ 17233573    7.409    0.000    7.409    0.000 {method 'group' of 're.Match' objects}
+  8909831    6.439    0.000 1287.783    0.000 {built-in method builtins.next}
+ 17821136    5.465    0.000    5.465    0.000 {method 'lower' of 'str' objects}
+  8908692    5.445    0.000    5.445    0.000 {method 'keys' of 'dict' objects}
+ 17839698    5.089    0.000    5.089    0.000 {method '__exit__' of '_thread.lock' objects}
+ 17817379    4.961    0.000    4.961    0.000 {method 'toordinal' of 'datetime.date' objects}
+ 17833534    4.747    0.000    4.747    0.000 {built-in method time.perf_counter}
+
+

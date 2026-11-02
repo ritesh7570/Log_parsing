@@ -5,6 +5,7 @@ import json
 import logging
 import sqlite3
 import tempfile
+import time
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
@@ -137,6 +138,18 @@ class JobManager:
         with self._db_lock:
             return self._update_job_locked(job_id, **fields)
 
+    def _update_job_timed(self, job_id: str, timing: dict[str, float], **fields) -> dict:
+        assignments = ", ".join(f"{key} = ?" for key in fields)
+        values = list(fields.values()) + [job_id]
+        with self._db_lock:
+            write_started = time.perf_counter()
+            self.conn.execute(f"UPDATE jobs SET {assignments} WHERE job_id = ?", values)
+            timing["sqlite_write_seconds"] = timing.get("sqlite_write_seconds", 0.0) + time.perf_counter() - write_started
+            commit_started = time.perf_counter()
+            self.conn.commit()
+            timing["sqlite_commit_seconds"] = timing.get("sqlite_commit_seconds", 0.0) + time.perf_counter() - commit_started
+            return self._get_job_locked(job_id)
+
     def get_job(self, job_id: str) -> dict:
         with self._db_lock:
             return self._get_job_locked(job_id)
@@ -161,14 +174,31 @@ class JobManager:
 
     def _run_job(self, job_id: str, upload_path: str) -> None:
         logger.info("JOB_STARTED job_id=%s", job_id)
+        job_started = time.perf_counter()
+        discovery_seconds = 0.0
+        extraction_seconds = 0.0
+        parsing_seconds = 0.0
+        fingerprinting_seconds = 0.0
+        sqlite_write_seconds = 0.0
+        sqlite_commit_seconds = 0.0
+        occurrence_write_seconds = 0.0
+        occurrence_commit_seconds = 0.0
+        job_db_timing: dict[str, float] = {"sqlite_write_seconds": 0.0, "sqlite_commit_seconds": 0.0}
+        processed_files = parsed_records = error_records = 0
+        distinct_clusters = 0
         try:
             with tempfile.TemporaryDirectory(prefix="log-job-") as working_dir:
-                discovery = discover_zip_archive(upload_path, temp_root=working_dir)
+                discovery_metrics: dict[str, float] = {}
+                stage_started = time.perf_counter()
+                discovery = discover_zip_archive(upload_path, temp_root=working_dir, metrics=discovery_metrics)
+                discovery_seconds = time.perf_counter() - stage_started
+                extraction_seconds = discovery_metrics.get("extraction_seconds", 0.0)
                 warnings = discovery.get("warnings") or []
                 total_files = len(discovery.get("log_files", []))
                 if total_files == 0:
-                    self.update_job(
+                    self._update_job_timed(
                         job_id,
+                        job_db_timing,
                         status="NO_SUPPORTED_FILES",
                         total_files=0,
                         warnings=json.dumps(warnings, ensure_ascii=False),
@@ -178,20 +208,18 @@ class JobManager:
                     )
                     return
 
-                self.update_job(
+                self._update_job_timed(
                     job_id,
+                    job_db_timing,
                     status="DISCOVERED",
                     total_files=total_files,
                     warnings=json.dumps(warnings, ensure_ascii=False),
                     current_component=None,
                     current_file=None,
                 )
-                self.update_job(job_id, status="PROCESSING")
+                self._update_job_timed(job_id, job_db_timing, status="PROCESSING")
 
                 cluster_store = SQLiteClusterStore()
-                processed_files = 0
-                parsed_records = 0
-                error_records = 0
                 malformed_lines = 0
 
                 for entry in discovery.get("log_files", []):
@@ -204,15 +232,25 @@ class JobManager:
                     component = entry.get("component")
                     if component not in SUPPORTED_COMPONENTS:
                         continue
-                    self.update_job(job_id, current_component=component, current_file=entry.get("path"))
+                    self._update_job_timed(job_id, job_db_timing, current_component=component, current_file=entry.get("path"))
                     try:
                         with file_path.open("r", encoding="utf-8-sig", errors="replace") as text_stream:
                             malformed: list[dict[str, object]] = []
-                            for record in iter_log_records(text_stream, on_malformed=malformed.append):
+                            records = iter_log_records(text_stream, on_malformed=malformed.append)
+                            while True:
+                                parse_started = time.perf_counter()
+                                try:
+                                    record = next(records)
+                                except StopIteration:
+                                    parsing_seconds += time.perf_counter() - parse_started
+                                    break
+                                parsing_seconds += time.perf_counter() - parse_started
                                 parsed_records += 1
                                 if record.level != "ERROR":
                                     continue
                                 error_records += 1
+                                fingerprint_started = time.perf_counter()
+                                sqlite_before = cluster_store.write_seconds
                                 cluster_store.add_occurrence(
                                     {
                                         "level": record.level,
@@ -229,11 +267,14 @@ class JobManager:
                                     },
                                     component=component,
                                 )
+                                sqlite_write_seconds += cluster_store.write_seconds - sqlite_before
                                 fingerprint = fingerprint_id(make_fingerprint({
                                     "qualified_function": record.qualified_function,
                                     "message": record.message,
                                 }))
+                                fingerprinting_seconds += time.perf_counter() - fingerprint_started
                                 with self._db_lock:
+                                    execute_started = time.perf_counter()
                                     self.conn.execute(
                                         """
                                         INSERT OR IGNORE INTO job_occurrences (
@@ -252,14 +293,18 @@ class JobManager:
                                             record.raw_line,
                                         ),
                                     )
+                                    occurrence_write_seconds += time.perf_counter() - execute_started
+                                    commit_started = time.perf_counter()
                                     self.conn.commit()
+                                    occurrence_commit_seconds += time.perf_counter() - commit_started
                             malformed_lines += len(malformed)
                     except Exception as exc:  # pragma: no cover - safety branch
-                        self.update_job(job_id, status="FAILED", failure_reason=f"Corrupt log entry: {entry.get('path')} ({exc})")
+                        self._update_job_timed(job_id, job_db_timing, status="FAILED", failure_reason=f"Corrupt log entry: {entry.get('path')} ({exc})")
                         raise
                     processed_files += 1
-                    self.update_job(
+                    self._update_job_timed(
                         job_id,
+                        job_db_timing,
                         processed_files=processed_files,
                         parsed_records=parsed_records,
                         error_records=error_records,
@@ -276,9 +321,12 @@ class JobManager:
                         )
 
                 clusters = cluster_store.export_clusters()
+                distinct_clusters = len(clusters)
+                sqlite_commit_seconds += cluster_store.commit_seconds
                 status = "COMPLETED_WITH_WARNINGS" if warnings else "COMPLETED"
-                self.update_job(
+                self._update_job_timed(
                     job_id,
+                    job_db_timing,
                     cluster_summary=json.dumps(clusters, ensure_ascii=False),
                     distinct_fingerprints=len(clusters),
                     status=status,
@@ -296,9 +344,34 @@ class JobManager:
                     len(clusters),
                 )
                 cluster_store.close()
+                sqlite_commit_seconds = cluster_store.commit_seconds + occurrence_commit_seconds + job_db_timing["sqlite_commit_seconds"]
+                sqlite_write_seconds += occurrence_write_seconds + job_db_timing["sqlite_write_seconds"]
+                total_seconds = time.perf_counter() - job_started
+                logger.info(
+                    "JOB_PERFORMANCE %s",
+                    json.dumps({
+                        "job_id": job_id,
+                        "discovery_seconds": round(discovery_seconds, 6),
+                        "extraction_seconds": round(extraction_seconds, 6),
+                        "parsing_seconds": round(parsing_seconds, 6),
+                        "fingerprinting_aggregation_seconds": round(fingerprinting_seconds, 6),
+                        "sqlite_write_seconds": round(sqlite_write_seconds, 6),
+                        "sqlite_commit_seconds": round(sqlite_commit_seconds, 6),
+                        "jobs_db_occurrence_write_seconds": round(occurrence_write_seconds, 6),
+                        "jobs_db_occurrence_commit_seconds": round(occurrence_commit_seconds, 6),
+                        "jobs_db_status_write_seconds": round(job_db_timing["sqlite_write_seconds"], 6),
+                        "jobs_db_status_commit_seconds": round(job_db_timing["sqlite_commit_seconds"], 6),
+                        "total_job_seconds": round(total_seconds, 6),
+                        "files_processed": processed_files,
+                        "records_parsed": parsed_records,
+                        "error_occurrences": error_records,
+                        "unique_clusters": distinct_clusters,
+                        "records_per_second": round(parsed_records / total_seconds, 2) if total_seconds else 0,
+                    }, ensure_ascii=False, sort_keys=True),
+                )
         except Exception as exc:  # pragma: no cover - limited local runtime safety
             logger.exception("JOB_FAILED job_id=%s", job_id)
-            self.update_job(job_id, status="FAILED", failure_reason=str(exc), completed_at=_utc_now())
+            self._update_job_timed(job_id, job_db_timing, status="FAILED", failure_reason=str(exc), completed_at=_utc_now())
 
     def get_clusters(self, job_id: str, page: int = 1, page_size: int = 20) -> dict:
         with self._db_lock:

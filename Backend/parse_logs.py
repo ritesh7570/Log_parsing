@@ -64,30 +64,70 @@ def split_function_and_message(payload: str) -> tuple[str, str]:
     if not payload:
         return "", ""
 
-    for candidate in (payload, payload.split("||")[-1]):
+    candidates = [payload]
+    if "||" in payload:
+        final_candidate = payload.rsplit("||", 1)[-1]
+        if final_candidate != payload:
+            candidates.append(final_candidate)
+
+    for candidate in candidates:
         candidate = candidate.strip()
         if not candidate:
             continue
-        operator_match = OPERATOR_FUNCTION.search(candidate)
-        if operator_match:
-            message = re.sub(r"^\s*[-:]\s*", "", operator_match.group("message"))
-            return (
-                operator_match.group("function").strip(),
-                message,
-            )
+        # The operator pattern requires this literal, so skip its regex search
+        # for payloads that cannot possibly match it.
+        if "operator" in candidate:
+            operator_match = OPERATOR_FUNCTION.search(candidate)
+            if operator_match:
+                message = re.sub(r"^\s*[-:]\s*", "", operator_match.group("message"))
+                return (
+                    operator_match.group("function").strip(),
+                    message,
+                )
 
-        function_match = QUALIFIED_FUNCTION.search(candidate)
-        if function_match:
-            message = re.sub(r"^\s*[-:]\s*", "", function_match.group("message"))
-            return (
-                function_match.group("function").strip(),
-                message,
-            )
+        # Qualified functions require at least one scope separator.
+        if "::" in candidate:
+            function_match = QUALIFIED_FUNCTION.search(candidate)
+            if function_match:
+                message = re.sub(r"^\s*[-:]\s*", "", function_match.group("message"))
+                return (
+                    function_match.group("function").strip(),
+                    message,
+                )
 
     return "", payload
 
 
 def to_iso_timestamp(value: str) -> str:
+    # Customer logs use this fixed-width format. Constructing the datetime
+    # directly avoids strptime's locale lookup and format fallback per record.
+    if (
+        len(value) == 23
+        and value[4] == "-"
+        and value[7] == "-"
+        and value[10] == " "
+        and value[13] == ":"
+        and value[16] == ":"
+        and value[19] == "."
+        and value[0:4].isdigit()
+        and value[5:7].isdigit()
+        and value[8:10].isdigit()
+        and value[11:13].isdigit()
+        and value[14:16].isdigit()
+        and value[17:19].isdigit()
+        and value[20:23].isdigit()
+    ):
+        try:
+            parsed = datetime(
+                int(value[0:4]), int(value[5:7]), int(value[8:10]),
+                int(value[11:13]), int(value[14:16]), int(value[17:19]),
+                int(value[20:23]) * 1000,
+            )
+        except ValueError:
+            pass
+        else:
+            return parsed.isoformat(timespec="milliseconds")
+
     for fmt in ("%d-%m-%Y_%H:%M:%S.%f", "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S.%f"):
         try:
             parsed = datetime.strptime(value, fmt)

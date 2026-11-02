@@ -6,6 +6,7 @@ import json
 import re
 import sqlite3
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -52,6 +53,8 @@ def fingerprint_id(key: tuple[str, str]) -> str:
 
 class SQLiteClusterStore:
     def __init__(self, db_path: str | Path | None = None):
+        self.write_seconds = 0.0
+        self.commit_seconds = 0.0
         if db_path is None:
             handle, temp_name = tempfile.mkstemp(prefix="log_clusters_", suffix=".db")
             Path(temp_name).touch()
@@ -106,7 +109,9 @@ class SQLiteClusterStore:
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_error_occurrences_component ON error_occurrences(component)"
         )
+        commit_started = time.perf_counter()
         self.conn.commit()
+        self.commit_seconds += time.perf_counter() - commit_started
 
     def add_occurrence(self, record: dict[str, Any], *, component: str = "UNKNOWN") -> None:
         if record.get("level") != "ERROR":
@@ -114,6 +119,7 @@ class SQLiteClusterStore:
 
         key = make_fingerprint(record)
         fingerprint = fingerprint_id(key)
+        write_started = time.perf_counter()
         self.conn.execute(
             """
             INSERT INTO error_clusters (
@@ -156,9 +162,12 @@ class SQLiteClusterStore:
                 record.get("raw_message") or "",
             ),
         )
+        self.write_seconds += time.perf_counter() - write_started
 
     def close(self) -> None:
+        commit_started = time.perf_counter()
         self.conn.commit()
+        self.commit_seconds += time.perf_counter() - commit_started
         self.conn.close()
         if self._temp_handle is not None:
             try:

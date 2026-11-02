@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import shutil
 import tempfile
+import time
 import zipfile
 from pathlib import Path, PurePosixPath
 
@@ -131,7 +132,8 @@ def _ordered_components(state: dict) -> list[dict]:
     return ordered
 
 
-def _extract_zip_member_to_disk(archive: zipfile.ZipFile, member_info: zipfile.ZipInfo, target_root: Path) -> Path:
+def _extract_zip_member_to_disk(archive: zipfile.ZipFile, member_info: zipfile.ZipInfo, target_root: Path, metrics: dict | None = None) -> Path:
+    extraction_started = time.perf_counter()
     file_bytes = archive.read(member_info.filename)
     if len(file_bytes) > MAX_INDIVIDUAL_FILE_SIZE:
         raise ValueError(f"archive member exceeds size limit: {member_info.filename}")
@@ -139,10 +141,13 @@ def _extract_zip_member_to_disk(archive: zipfile.ZipFile, member_info: zipfile.Z
     target_path = target_root / relative_path
     target_path.parent.mkdir(parents=True, exist_ok=True)
     target_path.write_bytes(file_bytes)
+    if metrics is not None:
+        metrics["extraction_seconds"] = metrics.get("extraction_seconds", 0.0) + time.perf_counter() - extraction_started
     return target_path
 
 
-def _extract_7z_member_to_disk(archive: py7zr.SevenZipFile, member_name: str, target_root: Path) -> Path:
+def _extract_7z_member_to_disk(archive: py7zr.SevenZipFile, member_name: str, target_root: Path, metrics: dict | None = None) -> Path:
+    extraction_started = time.perf_counter()
     relative_path = _normalize_relative_path(member_name)
     target_path = target_root / relative_path
     target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -153,6 +158,8 @@ def _extract_7z_member_to_disk(archive: py7zr.SevenZipFile, member_name: str, ta
     candidate = target_root / relative_path
     if not candidate.exists():
         raise FileNotFoundError(f"Unable to extract archive member: {member_name}")
+    if metrics is not None:
+        metrics["extraction_seconds"] = metrics.get("extraction_seconds", 0.0) + time.perf_counter() - extraction_started
     return candidate
 
 
@@ -214,7 +221,9 @@ def _scan_archive_path(archive_path: Path, temp_root: Path, *, state: dict, dept
                     if is_log and component_name in SUPPORTED_COMPONENTS:
                         extracted_path = temp_root / relative_path
                         extracted_path.parent.mkdir(parents=True, exist_ok=True)
+                        extraction_started = time.perf_counter()
                         extracted_path.write_bytes(archive.read(info.filename))
+                        state["metrics"]["extraction_seconds"] += time.perf_counter() - extraction_started
                         item["source_path"] = str(extracted_path)
                         state["log_files"].append({
                             "path": relative_path,
@@ -223,7 +232,7 @@ def _scan_archive_path(archive_path: Path, temp_root: Path, *, state: dict, dept
                             "source_path": str(extracted_path),
                         })
                     elif is_nested_archive:
-                        nested_archive_path = _extract_zip_member_to_disk(archive, info, temp_root / "nested")
+                        nested_archive_path = _extract_zip_member_to_disk(archive, info, temp_root / "nested", state["metrics"])
                         if depth + 1 <= MAX_ARCHIVE_DEPTH:
                             _scan_archive_path(nested_archive_path, temp_root, state=state, depth=depth + 1)
                         else:
@@ -288,7 +297,9 @@ def _scan_archive_path(archive_path: Path, temp_root: Path, *, state: dict, dept
 
                 targets_to_extract = extraction_targets + nested_targets
                 if targets_to_extract:
+                    extraction_started = time.perf_counter()
                     archive.extract(path=temp_root, targets=targets_to_extract)
+                    state["metrics"]["extraction_seconds"] += time.perf_counter() - extraction_started
                 for name in extraction_targets:
                     relative_path = _normalize_relative_path(name)
                     extracted_path = temp_root / relative_path
@@ -314,14 +325,17 @@ def _scan_archive_path(archive_path: Path, temp_root: Path, *, state: dict, dept
     state["warnings"].append(f"Unsupported archive type ignored: {archive_path.name}")
 
 
-def discover_zip_archive(zip_path: str | Path, temp_root: str | Path | None = None) -> dict:
+def discover_zip_archive(zip_path: str | Path, temp_root: str | Path | None = None, *, metrics: dict | None = None) -> dict:
     archive_path = Path(zip_path)
     if not archive_path.exists():
         raise FileNotFoundError(f"ZIP file not found: {archive_path}")
 
     work_dir = Path(temp_root) if temp_root is not None else Path(tempfile.mkdtemp(prefix="logscan_"))
     cleanup = temp_root is None
+    metrics = metrics if metrics is not None else {}
+    metrics["extraction_seconds"] = 0.0
     state = {
+        "metrics": metrics,
         "archive_count": 0,
         "total_entries": 0,
         "archives": [],

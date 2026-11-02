@@ -1,0 +1,47 @@
+{
+  "archive": "E:\\LogParsing\\customer_sample_upload.zip",
+  "processing_mode": "sequential files within one job; existing job-level concurrency retained",
+  "job_id": "854844afd9244508970b4fdec78c7be2",
+  "status": "COMPLETED",
+  "total_duration_seconds": 168.502155,
+  "stage_durations_seconds": {
+    "discovery_seconds": 3.93409,
+    "extraction_seconds": 3.628752,
+    "parsing_seconds": 126.895143,
+    "fingerprinting_aggregation_seconds": 0.154167,
+    "sqlite_write_seconds": 4.212218,
+    "sqlite_commit_seconds": 24.44924
+  },
+  "peak_process_ram_bytes": 39440384,
+  "peak_process_ram_mib": 37.61,
+  "files_processed": 558,
+  "records_parsed": 8908689,
+  "error_occurrences": 1180,
+  "unique_clusters": 17,
+  "records_per_second": 52869.88,
+  "measurement_notes": [
+    "Peak RSS is sampled every 50 ms and may miss shorter peaks.",
+    "Discovery duration includes extraction; extraction duration is a subset of discovery.",
+    "Fingerprint aggregation and SQLite timings overlap because aggregation writes to SQLite."
+  ],
+  "failure_reason": null,
+  "timing_detail": {
+    "discovery_seconds": 3.93409,
+    "error_occurrences": 1180,
+    "extraction_seconds": 3.628752,
+    "files_processed": 558,
+    "fingerprinting_aggregation_seconds": 0.154167,
+    "job_id": "854844afd9244508970b4fdec78c7be2",
+    "jobs_db_occurrence_commit_seconds": 12.250442,
+    "jobs_db_occurrence_write_seconds": 1.312165,
+    "jobs_db_status_commit_seconds": 12.197232,
+    "jobs_db_status_write_seconds": 2.80833,
+    "parsing_seconds": 126.895143,
+    "records_parsed": 8908689,
+    "records_per_second": 52869.88,
+    "sqlite_commit_seconds": 24.44924,
+    "sqlite_write_seconds": 4.212218,
+    "total_job_seconds": 168.502155,
+    "unique_clusters": 17
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "archive": "E:\\LogParsing\\customer_sample_upload.zip",
+  "baseline": {
+    "total_duration_seconds": 710.79767,
+    "parsing_seconds": 660.618984,
+    "files_processed": 558,
+    "records_parsed": 8908689,
+    "error_occurrences": 1180,
+    "unique_clusters": 17,
+    "peak_process_ram_mib": 37.07,
+    "records_per_second": 12533.37
+  },
+  "optimized": {
+    "runs": [
+      {
+        "total_duration_seconds": 168.502155,
+        "parsing_seconds": 126.895143,
+        "files_processed": 558,
+        "records_parsed": 8908689,
+        "error_occurrences": 1180,
+        "unique_clusters": 17,
+        "peak_process_ram_mib": 37.61,
+        "records_per_second": 52869.88
+      },
+      {
+        "total_duration_seconds": 135.218826,
+        "parsing_seconds": 97.025264,
+        "files_processed": 558,
+        "records_parsed": 8908689,
+        "error_occurrences": 1180,
+        "unique_clusters": 17,
+        "peak_process_ram_mib": 38.1,
+        "records_per_second": 65883.5
+      }
+    ],
+    "median_total_duration_seconds": 151.86049,
+    "median_parsing_seconds": 111.960204
+  },
+  "comparison": {
+    "duration_reduction_vs_baseline_percent": 78.64,
+    "parsing_reduction_vs_baseline_percent": 83.05,
+    "throughput_multiplier_using_median_duration": 4.68,
+    "result_counts_identical_in_each_optimized_run": true,
+    "peak_ram_change_mib_range": [
+      0.54,
+      1.03
+    ]
+  },
+  "scope": "Baseline is the supplied single verified 710.8-second run. Two optimized runs use the same archive and sequential job path; no file-level concurrency introduced."
+}
